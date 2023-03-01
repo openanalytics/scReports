@@ -1,0 +1,28 @@
+# R
+.Rhistory
+.RData
+*.Rbuildignore
+*.Rcheck
+
+# RStudio
+.Rproj.user
+*.Rproj
+
+# Eclipse/Architect Files
+.project
+
+# Jupyter
+.ipynb_checkpoints
+
+# Files
+*.h5ad
+*.h5seurat
+**/markers.csv
+**/meta.tsv
+*.tar.gz
+*.html
+
+# Folders
+data/*
+wdir/*
+vignettes/

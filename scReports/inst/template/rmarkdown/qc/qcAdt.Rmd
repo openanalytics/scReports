@@ -1,0 +1,457 @@
+<!-- RAW ADT DATA -->
+
+
+```{r adt-setup, eval = runAntibody}
+
+if (!params$isFilteredData) {
+  pander::pandoc.header("Raw antibody data", level = 1)
+} else {
+  pander::pandoc.header("Filtered antibody data", level = 1)
+}
+pander::pandoc.p("Quality control of single cell data is essential to identify droplet barcodes that are associated with single viable cells. The UMI count per barcode and the antibody count per barcode are calculated for each sample. The distributions are used to filter out barcodes associated with empty droplets, droplets containing cell doublets or non-viable cells. QC metrics should be considered jointly instead of separately. First, one should try to be as permissive as possible. Thereafter, filtering thresholds can be adjusted if needed, for instance, in the event that downstream clustering cannot be properly interpreted.")
+
+if (!params$isFilteredData) {
+  pander::pandoc.p("The following filtering was applied: (1) cells with less than a total of 10 UMI counts in all assays were dropped before creating the figures in this section.")
+}
+```
+
+
+<!-- VIOLIN PLOTS -->
+```{r adt-violinplot-dimensions}
+
+figParams <- computeFigParams(geom = "violin",
+                              nBreaks = nSamples, 
+                              nBreaksInStandardHeight = 15,
+                              standardFigWidth = standardFigWidth,
+                              standardFigHeight = standardFigHeight)
+
+```
+
+
+```{r adt-violin-nfeatures-args, eval = renderViolinADT}
+
+argsViolinPlot <- list(
+  df = primaryQCData, 
+  obs = "nFeature_ADT", 
+  groupBy = "sampleName",
+  horizontal = horizontalViolinPlots,
+  title = "Number of Antibodies", 
+  xLabel = "Sample", 
+  yLabel = "Number of Antibodies",
+  xAxisTextAngle = ifelse(horizontalViolinPlots, 0, 90),
+  removeViolin = FALSE, 
+  removeJitter = FALSE,
+  includeDefaultPositionalScales = !figParams$multipleFigures
+)
+
+```
+
+
+```{r adt-violin-with-jittered-points-nfeatures-1, eval = renderViolinADT, fig.width = figParams$width, fig.height = figParams$height}
+
+if (!params$isFilteredData) {
+  pander::pandoc.header("Violin plots of the raw antibody data {.tabset}", level = 2)
+} else {
+  pander::pandoc.header("Violin plots of the filtered antibody data {.tabset}", level = 2)
+}
+pander::pandoc.p("Violin plots are used to identify cells that correspond to: <br>
+  (1) droplets with a low count depth and few detected antibodies; or <br>
+  (2) droplets with a high UMI or antibody count, probably corresponding to cell doublets.")
+pander::pandoc.header("Number of Antibodies {.tabset -}", level = 3)
+pander::pandoc.header("Violin Plot with Jittered Points {-}", level = 4)
+
+argsViolinPlot$removeViolin <- FALSE
+argsViolinPlot$removeJitter <- FALSE
+
+gg <- do.call("createViolinPlot", argsViolinPlot)
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[1:figParams$nFullFigs],
+            endPos = figParams$seqEnd[1:figParams$nFullFigs],
+            flip = horizontalViolinPlots,
+            zoom = FALSE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r adt-violin-with-jittered-points-nfeatures-2, eval = renderViolinADT & figParams$remainder, fig.width = figParams$width, fig.height = figParams$heightRemainder}
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[figParams$nFigures],
+            endPos = figParams$seqEnd[figParams$nFigures],
+            flip = horizontalViolinPlots,
+            zoom = FALSE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r adt-jitterplot-nfeatures-1, eval = renderViolinADT, fig.width = figParams$width, fig.height = figParams$height}
+
+pander::pandoc.header("Jittered Points {-}", level = 4)
+
+argsViolinPlot$removeViolin <- TRUE
+argsViolinPlot$removeJitter <- FALSE
+
+gg <- do.call("createViolinPlot", argsViolinPlot)
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[1:figParams$nFullFigs],
+            endPos = figParams$seqEnd[1:figParams$nFullFigs],
+            flip = horizontalViolinPlots,
+            zoom = FALSE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r adt-jitterplot-nfeatures-2, eval = renderViolinADT & figParams$remainder, fig.width = figParams$width, fig.height = figParams$heightRemainder}
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[figParams$nFigures],
+            endPos = figParams$seqEnd[figParams$nFigures],
+            flip = horizontalViolinPlots,
+            zoom = FALSE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r adt-violinplot-nfeatures-1, eval = renderViolinADT, fig.width = figParams$width, fig.height = figParams$height}
+
+pander::pandoc.header("Violin Plot {-}", level = 4)
+
+argsViolinPlot$removeViolin <- FALSE
+argsViolinPlot$removeJitter <- TRUE
+
+gg <- do.call("createViolinPlot", argsViolinPlot)
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[1:figParams$nFullFigs],
+            endPos = figParams$seqEnd[1:figParams$nFullFigs],
+            flip = horizontalViolinPlots,
+            zoom = FALSE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r adt-violinplot-nfeatures-2, eval = renderViolinADT & figParams$remainder, fig.width = figParams$width, fig.height = figParams$heightRemainder}
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[figParams$nFigures],
+            endPos = figParams$seqEnd[figParams$nFigures],
+            flip = horizontalViolinPlots,
+            zoom = FALSE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r adt-violin-ncounts-args, eval = renderViolinADT}
+
+argsViolinPlot <- list(
+  df = primaryQCData, 
+  obs = "nCount_ADT", 
+  groupBy = "sampleName",
+  horizontal = horizontalViolinPlots,
+  title = "UMI Count", 
+  xLabel = "Sample", 
+  yLabel = "UMI Count",
+  xAxisTextAngle = ifelse(horizontalViolinPlots, 0, 90),
+  removeViolin = FALSE, 
+  removeJitter = FALSE,
+  includeDefaultPositionalScales = !figParams$multipleFigures
+)
+
+```
+
+
+```{r adt-violin-with-jittered-points-ncounts-1, eval = renderViolinADT, fig.width = figParams$width, fig.height = figParams$height}
+
+pander::pandoc.header("UMI Count {.tabset -}", level = 3)
+pander::pandoc.header("Violin Plot with Jittered Points {-}", level = 4)
+
+argsViolinPlot$removeViolin <- FALSE
+argsViolinPlot$removeJitter <- FALSE
+
+gg <- do.call("createViolinPlot", argsViolinPlot)
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[1:figParams$nFullFigs],
+            endPos = figParams$seqEnd[1:figParams$nFullFigs],
+            flip = horizontalViolinPlots,
+            zoom = FALSE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r adt-violin-with-jittered-points-ncounts-2, eval = renderViolinADT & figParams$remainder, fig.width = figParams$width, fig.height = figParams$heightRemainder}
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[figParams$nFigures],
+            endPos = figParams$seqEnd[figParams$nFigures],
+            flip = horizontalViolinPlots,
+            zoom = FALSE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r adt-zoomed-in-violin-with-jittered-points-ncounts-1, eval = renderViolinADT, fig.width = figParams$width, fig.height = figParams$height}
+
+pander::pandoc.header("Zoomed in Violin Plot with Jittered Points {-}", level = 4)
+
+argsViolinPlot$removeViolin <- FALSE
+argsViolinPlot$removeJitter <- FALSE
+
+gg <- do.call("createViolinPlot", argsViolinPlot)
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[1:figParams$nFullFigs],
+            endPos = figParams$seqEnd[1:figParams$nFullFigs],
+            flip = horizontalViolinPlots,
+            zoom = TRUE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r adt-zoomed-in-violin-with-jittered-points-ncounts-2, eval = renderViolinADT & figParams$remainder, fig.width = figParams$width, fig.height = figParams$heightRemainder}
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[figParams$nFigures],
+            endPos = figParams$seqEnd[figParams$nFigures],
+            flip = horizontalViolinPlots,
+            zoom = TRUE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r adt-jitterplot-ncounts-1, eval = renderViolinADT , fig.width = figParams$width, fig.height = figParams$height}
+
+pander::pandoc.header("Jittered Points {-}", level = 4)
+
+argsViolinPlot$removeViolin <- TRUE
+argsViolinPlot$removeJitter <- FALSE
+
+gg <- do.call("createViolinPlot", argsViolinPlot)
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[1:figParams$nFullFigs],
+            endPos = figParams$seqEnd[1:figParams$nFullFigs],
+            flip = horizontalViolinPlots,
+            zoom = FALSE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r adt-jitterplot-ncounts-2, eval = renderViolinADT & figParams$remainder, fig.width = figParams$width, fig.height = figParams$heightRemainder}
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[figParams$nFigures],
+            endPos = figParams$seqEnd[figParams$nFigures],
+            flip = horizontalViolinPlots,
+            zoom = FALSE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r adt-violinplot-ncounts-1, eval = renderViolinADT, fig.width = figParams$width, fig.height = figParams$height}
+
+pander::pandoc.header("Violin Plot {-}", level = 4)
+
+argsViolinPlot$removeViolin <- FALSE
+argsViolinPlot$removeJitter <- TRUE
+
+gg <- do.call("createViolinPlot", argsViolinPlot)
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[1:figParams$nFullFigs],
+            endPos = figParams$seqEnd[1:figParams$nFullFigs],
+            flip = horizontalViolinPlots,
+            zoom = FALSE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r adt-violinplot-ncounts-2, eval = renderViolinADT & figParams$remainder, fig.width = figParams$width, fig.height = figParams$heightRemainder}
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[figParams$nFigures],
+            endPos = figParams$seqEnd[figParams$nFigures],
+            flip = horizontalViolinPlots,
+            zoom = FALSE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r adt-zoomed-in-violinplot-ncounts-1, eval = renderViolinADT, fig.width = figParams$width, fig.height = figParams$height}
+
+pander::pandoc.header("Zoomed in Violin Plot {-}", level = 4)
+
+argsViolinPlot$removeViolin <- FALSE
+argsViolinPlot$removeJitter <- TRUE
+
+gg <- do.call("createViolinPlot", argsViolinPlot)
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[1:figParams$nFullFigs],
+            endPos = figParams$seqEnd[1:figParams$nFullFigs],
+            flip = horizontalViolinPlots,
+            zoom = TRUE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r adt-zoomed-in-violinplot-ncounts-2, eval = renderViolinADT & figParams$remainder, fig.width = figParams$width, fig.height = figParams$heightRemainder}
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[figParams$nFigures],
+            endPos = figParams$seqEnd[figParams$nFigures],
+            flip = horizontalViolinPlots,
+            zoom = TRUE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+<!-- HEATMAPS -->
+```{r adt-heatmap-dimensions, eval = renderHeatmaps}
+
+nAntibodies <- length(unique(unlist(lapply(rawData[antibodyDataPresent], 
+                                           function(X) rownames(X[["ADT"]])))))
+nAntibodySamples <- length(which(antibodyDataPresent))
+figParamsAntibodies <- computeFigParams(geom = "heatmap",
+                                        nBreaks = nAntibodies, 
+                                        nBreaksInStandardHeight = 30,
+                                        standardFigWidth = standardFigWidth,
+                                        standardFigHeight = standardFigHeight,
+                                        splitFigure = FALSE)
+figParamsSamples <- computeFigParams(geom = "heatmap",
+                                     nBreaks = nAntibodySamples + 1, # +1 for the median 
+                                     nBreaksInStandardHeight = 30,
+                                     standardFigWidth = standardFigWidth,
+                                     standardFigHeight = standardFigHeight,
+                                     splitFigure = FALSE)
+addText <- ifelse(nAntibodySamples <= 10, TRUE, FALSE)
+
+if (nAntibodies > 750) {
+  
+  renderHeatmaps <- FALSE
+}
+
+```
+
+
+```{r adt-heatmap-percentage-of-counts, eval = renderHeatmaps, fig.width = figParamsAntibodies$width, fig.height = figParamsAntibodies$height}
+
+if (!params$isFilteredData) {
+  pander::pandoc.header(
+    "Heatmaps and dendrograms of the raw antibody data {.tabset}", 
+    level = 2
+  )
+} else {
+  pander::pandoc.header(
+    "Heatmaps and dendrograms of the filtered antibody data {.tabset}", 
+    level = 2
+  )
+}
+pander::pandoc.p(
+  "These heatmaps are used to determine whether there is an imbalance in UMI 
+  counts across antibodies. Using the heatmaps, one can identify the antibodies 
+  that are associated with most of the counts."
+)
+pander::pandoc.header("Percentage of Total Counts {.tabset -}", level = 3)
+pander::pandoc.header("Heatmap {-}", level = 4)
+
+
+heatmapData <- computeADTHeatmapData(rawData[antibodyDataPresent],
+                                     type = "pctCounts")
+
+createHeatmap(df = heatmapData$heatmapData,
+              obsX = "Sample", 
+              obsY = "Antibody", 
+              fillBy = "AntibodyPercentages",
+              palette = "YlOrRd",
+              xLabel = "Sample",
+              yLabel = "Antibody",
+              lLabel = "Percentage of \n Total Counts",
+              addText = ifelse(nAntibodySamples <= 25, TRUE, FALSE),
+              makeInteractive = TRUE)
+
+if (length(heatmapData$sampleClust) == 1) renderSampleDendrogram <- FALSE
+if (length(heatmapData$antibodyClust) == 1) renderAntibodyDendrogram <- FALSE
+
+```
+
+
+```{r adt-antibody-dendrogram-based-on-percentage-of-counts, eval = renderAntibodyDendrogram & renderHeatmaps, fig.width = figParamsAntibodies$width, fig.height = figParamsAntibodies$height}
+
+pander::pandoc.header("Dendrogram of Antibodies {-}", level = 4)
+
+ggdendro::ggdendrogram(heatmapData$antibodyClust$hclust,
+                       rotate = TRUE)
+```
+
+
+```{r adt-sample-dendrogram-based-on-percentage-of-counts, eval = renderSampleDendrogram & renderHeatmaps, fig.width = figParamsSamples$width, fig.height = figParamsSamples$height}
+
+pander::pandoc.header("Dendrogram of Samples {-}", level = 4)
+
+ggdendro::ggdendrogram(heatmapData$sampleClust$hclust,
+                       rotate = TRUE)
+```
+
+
+```{r adt-heatmap-counts, eval = renderHeatmaps, fig.width = figParamsAntibodies$width, fig.height = figParamsAntibodies$height}
+
+pander::pandoc.header("Counts {-}", level = 3)
+
+heatmapData <- computeADTHeatmapData(rawData[antibodyDataPresent],
+                                     type = "counts")
+
+createHeatmap(df = heatmapData$heatmapData,
+              obsX = "Sample", 
+              obsY = "Antibody", 
+              fillBy = "AntibodyCount",
+              palette = "YlOrRd",
+              xLabel = "Sample",
+              yLabel = "Antibody",
+              lLabel = "Counts",
+              addText = ifelse(nAntibodySamples <= 10, TRUE, FALSE),
+              makeInteractive = TRUE)
+
+```
+
+
+```{r adt-heatmap-arcsinh-cofactor, eval = renderHeatmaps, fig.width = figParamsAntibodies$width, fig.height = figParamsAntibodies$height}
+
+pander::pandoc.header("Arc-SinH Cofactor {-}", level = 3)
+
+heatmapData <- computeADTHeatmapData(rawData[antibodyDataPresent],
+                                     type = "gm")
+
+createHeatmap(df = heatmapData$heatmapData,
+              obsX = "Sample",
+              obsY = "Antibody",
+              fillBy = "AntibodyGMs",
+              palette = "YlOrRd",
+              xLabel = "Sample",
+              yLabel = "Antibody",
+              lLabel = "Geometric \n Mean",
+              addText = ifelse(nAntibodySamples <= 10, TRUE, FALSE),
+              makeInteractive = TRUE)
+
+```
+
+
+

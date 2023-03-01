@@ -1,0 +1,56 @@
+Package: scReports
+Type: Package
+Title: R Markdown Templates and Functions for the Visualisation of Single Cell Data
+Version: 0.2.4
+Date: 2023-03-01
+Author: Trishanta Padayachee, Eva Adriaensen
+Maintainer: Eva Adriaensen <eva.adriaensen@openanalytics.eu>
+Description: A collection of functions and templates for the exploration of single cell data. The package currently focuses on the quality control of single cell data. 
+License: MIT + file LICENSE
+RoxygenNote: 7.2.3
+Encoding: UTF-8
+Depends:
+  R (>= 4.0)
+Imports: Matrix,
+         data.table, 
+         tibble, 
+         ggplot2, 
+         stringr, 
+         plyr, 
+         dplyr, 
+         RColorBrewer, 
+         plotly, 
+         htmlwidgets,
+         magrittr,
+         hdf5r,
+         rlang,
+         tidyr,
+         stats,
+         stringi,
+         purrr,
+         checkmate,
+         knitr,
+         reticulate,
+         rmarkdown,
+         DT,
+         R.utils,
+         devtools,
+         formattable,
+         htmltools,
+         pander,
+         markdown,
+         reshape2,
+         methods,
+         Cairo
+Suggests: DropletUtils,
+          testthat,
+          ggdendro
+VignetteBuilder: knitr
+Config/testthat/edition: 3
+Config/reticulate:
+  list(
+    packages = list(
+      list(package = "anndata", version = "0.7.8", pip = TRUE),
+      list(package = "scanpy", version = "1.8.2", pip = TRUE)
+    )
+  )

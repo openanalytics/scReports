@@ -1,0 +1,563 @@
+
+```{r readIn10XQualityMetrics1, eval = renderMetricContent}
+
+pander::pandoc.header("QC metrics", level = 1)
+pander::pandoc.p("The QC metrics reported here are outputs of the Cell Ranger pipeline.")
+
+metrics = NULL
+if (!params$cellRangerCount) {
+  metrics = lapply(params$sampleCRQC, convertCellRangerMultiToCellRangerCount)
+  metrics <- data.table::rbindlist(metrics, fill = TRUE)
+}
+QC <- readCRQC(params$sampleIDs, params$sampleCRQC, metrics = metrics)
+nSamples <- nrow(QC)
+
+```
+
+
+```{r metricAlerts, eval = renderMetricContent}
+
+pander::pandoc.header("QC metric alerts", level = 2)
+
+# Assess metrics
+tableOfAlerts <- assessMetrics(QC)
+
+# Table format
+tableFormat <- list(
+  Status = formatter(
+    "span",
+    style=x~ifelse(
+      x == "OK",
+      formattable::style(color="green", font.weight="bold"),
+      ifelse(x == "Warning", 
+             formattable::style(color="orange", font.weight="bold"),
+             ifelse(x == "Error", 
+                    formattable::style(color="red",font.weight="bold"), 
+                    NA)
+      )
+    ),
+    x~icontext(
+      ifelse(x == "OK", "ok-circle",
+             ifelse(x == "Warning", "warning-sign",
+                    ifelse(x == "Error", "remove-circle", NA))
+      )
+    )
+  )
+)
+formatedTable <-  formattable::formattable(tableOfAlerts, tableFormat)
+
+# DataTable
+formattable::as.datatable(
+  formatedTable,
+  escape = FALSE, 
+  extensions = c("FixedColumns"),
+  rownames = FALSE,
+  style = "default",
+  options = list(
+    scrollX = TRUE,
+    fixedColumns = list(leftColumns = 2),
+    columnDefs = list(
+      list(className = 'dt-left', targets = c(0, 2)),
+      list(className = 'dt-center', targets = 1)
+    ),
+    paging = TRUE,
+    pageLength = 50,
+    lengthMenu = c(2, 5, 10, 25, 50, 100),
+    ordering = TRUE,
+    searching = TRUE,
+    dom = "lfrtip")
+)
+
+```
+
+
+```{r tableOf10XQualityMetrics, eval = renderMetricContent}
+
+pander::pandoc.header("Table of QC metrics", level = 2)
+
+## Identify count columns and percentage columns
+percentageMetrics <- c("Valid Barcodes",
+                       "Sequencing Saturation",
+                       "Q30 Bases in Barcode",
+                       "Q30 Bases in RNA Read",
+                       "Q30 Bases in Sample Index",
+                       "Q30 Bases in UMI",
+                       "Fraction Reads in Cells",
+                       "Reads Mapped to Genome",
+                       "Reads Mapped Confidently to Genome",
+                       "Reads Mapped Confidently to Intergenic Regions",
+                       "Reads Mapped Confidently to Intronic Regions",
+                       "Reads Mapped Confidently to Exonic Regions",
+                       "Reads Mapped Confidently to Transcriptome",
+                       "Reads Mapped Antisense to Gene",
+                       "Antibody: Valid Barcodes",
+                       "Antibody: Fraction Reads in Barcodes with High UMI Counts",
+                       "Antibody: Sequencing Saturation",
+                       "Antibody: Q30 Bases in Barcode",
+                       "Antibody: Q30 Bases in Antibody Read",
+                       "Antibody: Q30 Bases in Sample Index",
+                       "Antibody: Q30 Bases in UMI",
+                       "Antibody: Fraction Antibody Reads",
+                       "Antibody: Fraction Antibody Reads Usable",
+                       "Antibody: Fraction Unrecognized Antibody",
+                       "Antibody: Antibody Reads in Cells",
+                       "CRISPR: Valid Barcodes",
+                       "CRISPR: Sequencing Saturation",
+                       "CRISPR: Q30 Bases in Barcode",
+                       "CRISPR: Q30 Bases in RNA Read",
+                       "CRISPR: Q30 Bases in Sample Index",
+                       "CRISPR: Q30 Bases in UMI",
+                       "CRISPR: Fraction Reads with Putative Protospacer Sequence",
+                       "CRISPR: Fraction Guide Reads",
+                       "CRISPR: Fraction Guide Reads Usable",
+                       "CRISPR: Fraction Protospacer Not Recognized",
+                       "CRISPR: Guide Reads in Cells",
+                       "Custom: Valid Barcodes",
+                       "Custom: Sequencing Saturation",
+                       "Custom: Q30 Bases in Barcode",
+                       "Custom: Q30 Bases in Feature Read",
+                       "Custom: Q30 Bases in Sample Index",
+                       "Custom: Q30 Bases in UMI",
+                       "Custom: Fraction Feature Reads",
+                       "Custom: Fraction Feature Reads Usable",
+                       "Custom: Fraction Unrecognized Feature",
+                       "Custom: Feature Reads in Cells")
+countCols <-  colnames(QC)[-1][!(colnames(QC)[-1] %in% percentageMetrics)]
+percentageCols <- colnames(QC)[-1][colnames(QC)[-1] %in% percentageMetrics]
+
+## Formatting for the count and percentage columns
+formatCountCols <- sapply(countCols,
+                          function(x) {
+                            eval(
+                              parse(text = sub("_name_", x , 
+                                               "`_name_` = color_tile('white','#32a6d3')"))
+                              )
+                            }, 
+                          simplify = FALSE,
+                          USE.NAMES = TRUE) 
+formatPercentageCols <- sapply(percentageCols,
+                               function(x) {
+                                 eval(
+                                   parse(text = sub("_name_", x , 
+                                                    "`_name_` = color_bar('#D6EAF8', fun = function(x)  x/100)"))
+                                   )
+                                 },
+                               simplify = FALSE,
+                               USE.NAMES = TRUE)
+format <- c(formatCountCols, formatPercentageCols)
+
+## Add sample name column if present and convert NAs to ""
+if (length(params$sampleNames) != 0) {
+  
+  qcTable <- QC
+  qcTable <- cbind(QC, "Sample Name" = params$sampleNames)
+  qcTable[is.na(qcTable)] <- ""
+  
+} else {
+  
+  qcTable <- QC
+  qcTable[is.na(qcTable)] <- ""
+  
+}
+
+## Create table
+formatTable <-  formattable::formattable(qcTable, 
+                                         format)
+formattable::as.datatable(formatTable,
+                          class = "display",
+                          escape = FALSE, 
+                          extensions = c("FixedColumns", "Buttons"),
+                          rownames = FALSE,
+                          style = "default",
+                          options = list(
+                            scrollX = TRUE,
+                            fixedColumns = list(leftColumns = 1),
+                            columnDefs = list(
+                              list(className = 'dt-left', targets = 0),
+                              list(className = 'dt-right', targets = 1:(ncol(qcTable) - 1 )),
+                              list(className = 'dt-bottom', targets = 0:(ncol(qcTable) - 1))
+                            ),
+                            paging = TRUE,
+                            pageLength = 50,
+                            lengthMenu = c(2,5,10,20,30,40,50),
+                            ordering = TRUE,
+                            searching = FALSE,
+                            dom = "Blfrtip",
+                            buttons = list("copy", "csv"))
+) %>%
+  formatStyle("Sample ID", fontWeight = "bold") %>%
+  formatStyle(1:ncol(qcTable)-1, "vertical-align" = "bottom") 
+
+
+```
+
+
+
+```{r createMetricsBarCharts, eval = renderMetricContent}
+
+pander::pandoc.header("Bar charts of QC metrics", level = 2)
+pander::pandoc.p("A description of each metric as described on the [10x Genomics](https://support.10xgenomics.com/single-cell-gene-expression/software/pipelines/latest/output/gex-metrics) website is provided above each bar chart.")
+
+allTabNames = c(colnames(QC)[-1])
+allPlotNames <- c(colnames(QC)[-1])
+textList <- yaml::read_yaml(
+  file = system.file("template", "rmarkdown", "qc", "10xGenomics_QCDefinitions.yml",
+                     package = "scReports")
+)
+plotList <- lapply(allPlotNames, function(x) createQCBarChart(qcData = QC,
+                                                              x = "Sample ID",
+                                                              nameMetric = x, 
+                                                              horizontal = horizontalBarCharts,
+                                                              xLabel = "Sample",
+                                                              xAngle = ifelse(horizontalBarCharts, 0, 90),
+                                                              makeInteractive = TRUE,
+                                                              saveFigure = FALSE))
+names(plotList) <- allPlotNames
+
+width <- 800 # in px
+height <- 600
+# assuming dpi of 72
+heightMapping <- min(600 + 20*(4*nSamples - 30)*(4*nSamples > 30), 12240) 
+includeOutDimensions <- horizontalBarCharts
+if (horizontalBarCharts == TRUE) {
+  
+  # assuming dpi of 72
+  height <- min(600 + 20*(nSamples - 30)*(nSamples > 30), 12240)
+  
+}
+
+```
+
+
+```{r displayCellMetrics, eval = renderMetricContent}
+
+pander::pandoc.header(" Cell metrics {.tabset}", level = 3)
+
+cellMetrics <- list("Estimated Number of Cells",
+                    "Fraction Reads in Cells",
+                    "Mean Reads per Cell",
+                    "Median Genes per Cell",
+                    "Total Genes Detected",
+                    "Median UMI Counts per Cell")
+selectedPlots <- which(allPlotNames %in% cellMetrics)
+
+tabNames <- allTabNames[selectedPlots]
+plotNames <- allPlotNames[selectedPlots]
+outWidths <- rep(width,length(selectedPlots))
+outHeights <- rep(height, length(selectedPlots))
+
+outCellMetrics <- tabLayout(tabNames = tabNames, 
+                            contentNames = plotNames,
+                            textList = textList,
+                            plotList = plotList, 
+                            tabLevel = 4,
+                            includeOutDimensions = includeOutDimensions,
+                            outWidth = outWidths,
+                            outHeight = outHeights) 
+
+```
+`r if (renderMetricContent == TRUE) knitr::knit(text = paste(outCellMetrics, collapse = '\n'))`
+
+
+```{r displaySequencingMetrics, eval = renderMetricContent}
+
+pander::pandoc.header("Sequencing metrics {.tabset}", level = 3)
+
+sequencingMetrics <- list("Number of Reads", 
+                          "Valid Barcodes",
+                          "Sequencing Saturation",
+                          "Q30 Bases in Barcode",
+                          "Q30 Bases in RNA Read",
+                          "Q30 Bases in Sample Index",
+                          "Q30 Bases in UMI")
+selectedPlots <- which(allPlotNames %in% sequencingMetrics)
+
+tabNames <- allTabNames[selectedPlots]
+plotNames <- allPlotNames[selectedPlots]
+outWidths <- rep(width,length(selectedPlots))
+outHeights <- rep(height, length(selectedPlots))
+
+outSequencingMetrics <- tabLayout(tabNames = tabNames, 
+                            contentNames = plotNames,
+                            textList = textList,
+                            plotList = plotList,
+                            tabLevel = 4,
+                            includeOutDimensions = includeOutDimensions,
+                            outWidth = outWidths,
+                            outHeight = outHeights)
+
+
+```
+`r if (renderMetricContent == TRUE) knitr::knit(text = paste(outSequencingMetrics, collapse = '\n'))`
+
+
+```{r displayMappingMetrics, eval = renderMetricContent}
+
+pander::pandoc.header("Mapping metrics {.tabset}", level = 3)
+
+mappingMetrics <- list("Reads Mapped to Genome",
+                       "Reads Mapped Confidently to Genome",
+                       "Reads Mapped Confidently to Intergenic Regions",
+                       "Reads Mapped Confidently to Intronic Regions",
+                       "Reads Mapped Confidently to Exonic Regions",
+                       "Reads Mapped Confidently to Transcriptome",
+                       "Reads Mapped Antisense to Gene")
+selectedPlots <- which(allPlotNames %in% mappingMetrics)
+
+tabNames <- allTabNames[selectedPlots]
+plotNames <- allPlotNames[selectedPlots]
+outWidths <- rep(width,length(selectedPlots))
+outHeights <- rep(height, length(selectedPlots))
+
+outMappingMetrics <- tabLayout(tabNames = tabNames, 
+                            contentNames = plotNames,
+                            textList = textList,
+                            plotList = plotList,
+                            tabLevel = 4,
+                            includeOutDimensions = includeOutDimensions,
+                            outWidth = outWidths,
+                            outHeight = outHeights)
+
+
+```
+`r if (renderMetricContent == TRUE) knitr::knit(text = paste(outMappingMetrics, collapse = '\n'))`
+
+
+```{r MappingComparison1, eval = renderMetricContent, out.width = "800px", out.height = heightMapping}
+
+pander::pandoc.header("Mapping Comparison {-}", level = 4)
+
+mappingGroupA <- QC %>%
+  select(c("Reads Mapped to Genome",
+           "Reads Mapped Confidently to Genome",
+           "Reads Mapped Confidently to Exonic Regions",
+           "Reads Mapped Confidently to Transcriptome",
+           "Sample ID")) %>% 
+  reshape2::melt(id = "Sample ID") %>%
+  dplyr::mutate(value = as.numeric(value)) %>%
+  dplyr::arrange(!!sym("Sample ID"), desc(variable))
+
+createQCBarChart(qcData = mappingGroupA,
+                 x = "Sample ID",
+                 nameMetric = "value", 
+                 fillBy = "variable",
+                 barPosition = "dodge",
+                 legendPosition = "bottom",
+                 title = "Mapping Comparison",
+                 xLabel = "Sample",
+                 yLabel = "Percentage",
+                 lLabel = "Metric",
+                 horizontal = TRUE,
+                 xAngle = 0,
+                 makeInteractive = TRUE,
+                 saveFigure = FALSE)
+
+```
+
+
+```{r MappingComparison2, eval = renderMetricContent, out.width = "800px", out.height = heightMapping}
+
+mappingGroupB <- QC %>%
+  dplyr::select(c("Reads Mapped to Genome",
+                  "Reads Mapped Confidently to Intergenic Regions",
+                  "Reads Mapped Confidently to Intronic Regions",
+                  "Reads Mapped Antisense to Gene",
+                  "Sample ID")) %>%
+  reshape2::melt(id = "Sample ID") %>%
+  dplyr::mutate(value = as.numeric(value))  %>%
+  dplyr::arrange(!!sym("Sample ID"), desc(variable))
+
+createQCBarChart(qcData = mappingGroupB,
+                 x = "Sample ID",
+                 nameMetric = "value", 
+                 fillBy = "variable",
+                 barPosition = "dodge",
+                 legendPosition = "bottom",
+                 title = "Mapping Comparison",
+                 xLabel = "Sample",
+                 yLabel = "Percentage",
+                 lLabel = "Metric",
+                 horizontal = TRUE,
+                 xAngle = 0,
+                 makeInteractive = TRUE,
+                 saveFigure = FALSE)
+
+```
+
+
+```{r displayAntibodySequencingMetrics, eval = renderMetricContent}
+
+antibodySequencingMetrics <- list("Antibody: Number of Reads",
+                                  "Antibody: Valid Barcodes",
+                                  "Antibody: Mean Reads per Cell",
+                                  "Antibody: Sequencing Saturation",
+                                  "Antibody: Q30 Bases in Barcode",
+                                  "Antibody: Q30 Bases in Antibody Read",
+                                  "Antibody: Q30 Bases in Sample Index",
+                                  "Antibody: Q30 Bases in UMI")
+selectedPlots <- which(allPlotNames %in% antibodySequencingMetrics)
+
+outAntibodySequencingMetrics <- NULL
+if (length(selectedPlots) != 0) {
+  
+  pander::pandoc.header("Antibody Sequencing {.tabset}", level = 3)
+  
+  tabNames <- allTabNames[selectedPlots]
+  plotNames <- allPlotNames[selectedPlots]
+  outWidths <- rep(width,length(selectedPlots))
+  outHeights <- rep(height, length(selectedPlots))
+  
+  outAntibodySequencingMetrics <- tabLayout(tabNames = tabNames, 
+                                            contentNames = plotNames,
+                                            textList = textList,
+                                            plotList = plotList,
+                                            tabLevel = 4,
+                                            includeOutDimensions = includeOutDimensions,
+                                            outWidth = outWidths,
+                                            outHeight = outHeights)
+  
+  
+}
+
+```
+`r if (renderMetricContent == TRUE) { if (!is.null(outAntibodySequencingMetrics))  knitr::knit(text = paste(outAntibodySequencingMetrics, collapse = '\n'))}`
+
+
+```{r displayAntibodyApplicationMetrics, eval = renderMetricContent}
+
+antibodyApplicationMetrics <- list("Antibody: Fraction Antibody Reads",
+                                   "Antibody: Fraction Antibody Reads Usable",
+                                   "Antibody: Antibody Reads Usable per Cell",
+                                   "Antibody: Fraction Reads in Barcodes with High UMI Counts",
+                                   "Antibody: Fraction Unrecognized Antibody",
+                                   "Antibody: Antibody Reads in Cells",
+                                   "Antibody: Median UMIs per Cell (summed over all recognized antibody barcodes)")
+selectedPlots <- which(allPlotNames %in% antibodyApplicationMetrics)
+
+outAntibodyApplicationMetrics <- NULL
+if (length(selectedPlots) != 0) {
+  
+  pander::pandoc.header("Antibody Application {.tabset}", level = 3)
+  
+  tabNames <- allTabNames[selectedPlots]
+  plotNames <- allPlotNames[selectedPlots]
+  outWidths <- rep(width,length(selectedPlots))
+  outHeights <- rep(height, length(selectedPlots))
+  
+  outAntibodyApplicationMetrics <- tabLayout(tabNames = tabNames, 
+                                             contentNames = plotNames,
+                                             textList = textList,
+                                             plotList = plotList, 
+                                             tabLevel = 4,
+                                             includeOutDimensions = includeOutDimensions,
+                                             outWidth = outWidths,
+                                             outHeight = outHeights)
+  
+} 
+
+```
+`r if (renderMetricContent == TRUE) { if (!is.null(outAntibodyApplicationMetrics)) knitr::knit(text = paste(outAntibodyApplicationMetrics, collapse = '\n')) }`
+
+
+```{r displayCRISPRMetrics, eval = renderMetricContent}
+
+CRISPRMetrics <- list("CRISPR: Number of Reads",
+                      "CRISPR: Mean Reads per Cell",
+                      "CRISPR: Valid Barcodes",
+                      "CRISPR: Sequencing Saturation",
+                      "CRISPR: Q30 Bases in Barcode",
+                      "CRISPR: Q30 Bases in RNA Read",
+                      "CRISPR: Q30 Bases in Sample Index",
+                      "CRISPR: Q30 Bases in UMI",
+                      "CRISPR: Fraction Reads with Putative Protospacer Sequence",
+                      "CRISPR: Fraction Guide Reads",
+                      "CRISPR: Fraction Guide Reads Usable",
+                      "CRISPR: Guide Reads Usable per Cell",
+                      "CRISPR: Fraction Protospacer Not Recognized",
+                      "CRISPR: Guide Reads in Cells",
+                      "CRISPR: Cells with 1 or more protospacers detected",
+                      "CRISPR: Cells with 2 or more protospacers detected",
+                      "CRISPR: Median UMIs per Cell")
+
+selectedPlots <- which(allPlotNames %in% CRISPRMetrics)
+
+outCRISPRMetrics <- NULL
+if (length(selectedPlots) != 0) {
+  
+  pander::pandoc.header("CRISPR metrics {.tabset}", level = 3)
+  
+  tabNames <- allTabNames[selectedPlots]
+  plotNames <- allPlotNames[selectedPlots]
+  outWidths <- rep(width,length(selectedPlots))
+  outHeights <- rep(height, length(selectedPlots))
+  
+  outCRISPRMetrics <- tabLayout(tabNames = tabNames, 
+                                contentNames = plotNames,
+                                textList = textList,
+                                plotList = plotList,
+                                tabLevel = 4,
+                                includeOutDimensions = includeOutDimensions,
+                                outWidth = outWidths,
+                                outHeight = outHeights)
+}
+
+```
+`r if (renderMetricContent == TRUE) { if (!is.null(outCRISPRMetrics)) knitr::knit(text = paste(outCRISPRMetrics, collapse = '\n'))}`
+
+
+```{r displayCustomMetrics, eval = renderMetricContent}
+
+CustomMetrics <- list("Custom: Number of Reads",
+                      "Custom: Mean Reads per Cell",
+                      "Custom: Valid Barcodes",
+                      "Custom: Sequencing Saturation",
+                      "Custom: Q30 Bases in Barcode",
+                      "Custom: Q30 Bases in Feature Read",
+                      "Custom: Q30 Bases in Sample Index",
+                      "Custom: Q30 Bases in UMI",
+                      "Custom: Fraction Feature Reads",
+                      "Custom: Fraction Feature Reads Usable",
+                      "Custom: Feature Reads Usable per Cell",
+                      "Custom: Fraction Unrecognized Feature",
+                      "Custom: Feature Reads in Cells",
+                      "Custom: Median UMIs per Cell")
+selectedPlots <- which(allPlotNames %in% CustomMetrics)
+
+outCustomMetrics <- NULL
+if (length(selectedPlots) != 0) {
+  
+  pander::pandoc.header("Custom metrics {.tabset}", level = 3)
+  
+  tabNames <- allTabNames[selectedPlots]
+  plotNames <- allPlotNames[selectedPlots]
+  outWidths <- rep(width,length(selectedPlots))
+  outHeights <- rep(height, length(selectedPlots))
+  
+  outCustomMetrics <- tabLayout(tabNames = tabNames, 
+                                contentNames = plotNames,
+                                textList = textList,
+                                plotList = plotList, 
+                                tabLevel = 4,
+                                includeOutDimensions = includeOutDimensions,
+                                outWidth = outWidths,
+                                outHeight = outHeights)
+}
+
+```
+`r if (renderMetricContent == TRUE) { if (!is.null(outCustomMetrics)) knitr::knit(text = paste(outCustomMetrics, collapse = '\n')) }`
+
+
+```{r clearWorkspace1, eval = renderMetricContent}
+
+rm("QC", "plotList", "allPlotNames", "textList",
+   "selectedPlots", "tabNames", "plotNames", 
+   "outWidths", "outHeights", "includeOutDimensions",
+    "CustomMetrics", "outCustomMetrics",
+    "CRISPRMetrics", "outCRISPRMetrics",
+    "antibodyApplicationMetrics", "outAntibodyApplicationMetrics",
+    "antibodySequencingMetrics", "outAntibodySequencingMetrics",
+    "sequencingMetrics", "outSequencingMetrics",
+    "cellMetrics", "outCellMetrics")
+
+```
+

@@ -1,0 +1,471 @@
+<!-- RAW GEX AND ADT DATA -->
+
+```{r gex-and-adt-setup, eval = runGeneExpression & runAntibody & (renderScatterGEXADT | renderKneePlots)}
+
+if (!params$isFilteredData) {
+  pander::pandoc.header("Raw gene expression and raw antibody data", level = 1)
+} else {
+  pander::pandoc.header("Filtered gene expression and filtered antibody data", level = 1)
+}
+
+```
+
+<!-- KNEE PLOTS -->
+```{r gex-and-adt-knee-plot-setup}
+
+figParams <- computeFigParams(geom = "scatter",
+                              nBreaks = nSamples, 
+                              nBreaksInStandardHeight = 15,
+                              standardFigWidth = standardFigWidth,
+                              standardFigHeight = standardFigHeight)
+
+```
+
+
+```{r gex-and-adt-knee-plot-data, eval = renderKneePlots, fig.width = standardFigWidth, fig.height = standardFigHeight}
+
+if (!params$isFilteredData) {
+  pander::pandoc.header("Knee plots of the raw data {.tabset}", level = 2)
+} else {
+  pander::pandoc.header("Knee plots of the filtered data {.tabset}", level = 2)
+}
+pander::pandoc.p("In order to generate the knee plots shown below, barcodes were ranked in decreasing order of their total counts. In the figures, the logarithm-transformed total counts of each barcode are plotted against their corresponding logarithm-transformed ranks. The figures can be of use in determining filtering thresholds. The knee points represent transitioning points between barcodes that contain a large number of total UMI counts and barcodes with far fewer UMI counts. As discussed in Lun et al., 2019, barcodes that lie above the knee point are likely to correspond to cell-containing droplets whereas barcodes that lie below the knee point could potentially be empty droplets. The knee point provides a more conservative threshold than the inflection point. Note, the knee and inflection points were determined using the default settings of the 'barcodeRanks' function from the 'DropletUtils' R package.")
+
+# Compute knee data 
+rnaKneeData <- lapply(rawData,
+                      function(X) {
+                        try(DropletUtils::barcodeRanks(m = X[["RNA"]]),
+                            silent = TRUE)
+                      }
+)
+adtKneeData <- lapply(rawData[antibodyDataPresent],
+                      function(X) {
+                        try(DropletUtils::barcodeRanks(m = X[["ADT"]]),
+                            silent = TRUE)
+                      }
+)
+
+
+# Extract overview of points
+samples <- c(rep(names(rawData), each = 2),
+             rep(names(rawData[antibodyDataPresent]), each = 2))
+assay <- c(rep("RNA", times = 2*length(rawData)), 
+           rep("ADT", times = 2*sum(antibodyDataPresent)))
+pointDescription <- c(rep(c("knee", "inflection"), times = length(rawData)), 
+                      rep(c("knee", "inflection"), times = sum(antibodyDataPresent)))
+type <- paste0(assay, "-", pointDescription)
+pointsRNA <- unlist(lapply(names(rnaKneeData),
+                           function(x) {
+                             if (inherits(rnaKneeData[[x]], "try-error")) {
+                               knee <- NA
+                               inflection <- NA
+                             } else {
+                               knee <- rnaKneeData[[x]]@metadata$knee
+                               inflection <- rnaKneeData[[x]]@metadata$inflection
+                             }
+                             return(c(knee,inflection))
+                           }
+))
+adtSamples <- names(rawData[antibodyDataPresent])
+pointsADT <- unlist(lapply(adtSamples,
+                           function(x) {
+                             if (inherits(adtKneeData[[x]], "try-error")) {
+                               knee <- NA
+                               inflection <- NA
+                             } else {
+                               knee <- adtKneeData[[x]]@metadata$knee
+                               inflection <- adtKneeData[[x]]@metadata$inflection
+                             }
+                             return(c(knee,inflection))
+                           }
+))
+pointValues <- c(pointsRNA,pointsADT)
+pointOverview <- data.frame(
+  "sample" = samples, 
+  "assay" = assay, 
+  "pointDescription" = pointDescription,
+  "type" = type, 
+  "value" = pointValues)
+
+```
+
+
+```{r gex-and-adt-knee-plot-overview-args, eval = renderKneePlots}
+
+argsKPO <- list(
+  df = pointOverview, 
+  obsX = "sample", 
+  obsY = "value",
+  colourBy = "type", 
+  colours = c("cornflowerblue", "deepskyblue", "chocolate", "orange"),
+  shapeBy = "type",
+  xLabel = "Sample", 
+  yLabel = "Total UMI Counts", 
+  lLabel = "Type of Point",
+  xAngle = ifelse(horizontalKneePlotOverview, 0, 90)
+)
+
+```
+
+
+```{r gex-and-adt-knee-plot-overview-1, eval = renderKneePlots, fig.width = figParams$width, fig.height = figParams$height}
+
+pander::pandoc.header("Overview {-}", level = 3)
+
+gg <- do.call("createStandardScatterPlot", args = argsKPO)
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[1:figParams$nFullFigs],
+            endPos = figParams$seqEnd[1:figParams$nFullFigs],
+                        flip = horizontalKneePlotOverview,
+            zoom = FALSE,
+            expansionFactor = 0.01,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r gex-and-adt-knee-plot-overview-2, eval = renderKneePlots & figParams$remainder, fig.width = figParams$width, fig.height = figParams$heightRemainder}
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[figParams$nFigures],
+            endPos = figParams$seqEnd[figParams$nFigures],
+            flip = horizontalKneePlotOverview,
+            zoom = FALSE,
+            expansionFactor = 0.01,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r gex-and-adt-sample-specific-knee-plots, eval = renderKneePlots, fig.width = standardFigWidth, fig.height = standardFigHeight}
+
+# Create list of plots and list of text
+i <- 0
+tabNames <- names(rawData)
+contentNames <- names(rawData)
+plotList <- NULL
+textList <- NULL
+knees <- NULL
+inflections <- NULL
+
+for (sample in names(rawData)) {
+  
+  i <- i + 1
+  textList[[sample]] <- NULL
+  plotList[[sample]] <- NULL
+  
+  if (sample %in% adtSamples) {
+    
+    if (inherits(rnaKneeData[[sample]], "try-error")) {
+      
+      textList[[sample]] <- 
+        paste0(textList[[sample]],
+               "Unable to generate a knee plot for this sample's RNA data. ",
+               "Possible reason: insufficient number of unique points for fitting 
+               spline and computing knee/inflection points. ")
+      
+    }
+    if (inherits(adtKneeData[[sample]], "try-error")) {
+      
+      textList[[sample]] <- 
+        paste0(textList[[sample]],
+               "Unable to generate a knee plot for this sample's ADT data. ",
+               "Possible reason: insufficient number of unique points for fitting 
+             spline and computing knee/inflection points. ")
+      
+    }
+    
+    if (!inherits(rnaKneeData[[sample]], "try-error") &
+        !inherits(adtKneeData[[sample]], "try-error")) {
+      
+      kneeData <- bind_rows(
+        list("RNA" = as.data.frame(rnaKneeData[[sample]]@listData),
+             "ADT" = as.data.frame(adtKneeData[[sample]]@listData)),
+        .id = "assay"
+      )
+      
+      hlineY <- c(
+        rnaKneeData[[sample]]@metadata$knee, 
+        rnaKneeData[[sample]]@metadata$inflection,
+        adtKneeData[[sample]]@metadata$knee,
+        adtKneeData[[sample]]@metadata$inflection
+      )
+      
+      plotList[[sample]] <- createStandardScatterPlot(
+        df = kneeData, obsX = "rank", obsY = "total", 
+        colourBy = "assay", colours = c("cornflowerblue", "chocolate"),
+        shapeBy = "assay", shape = c(17,16),
+        xLabel = "Barcode Rank", yLabel = "Total UMI Counts",
+        xTrans = "log10", yTrans = "log10",
+        hlineY = hlineY, hlineColourBy = c("RNA", "RNA", "ADT", "ADT"),
+        hlineTypeBy = c("knee", "inflection", "knee", "inflection"),
+        hlineType = c("dotted", "dashed"), pointSize = 2
+      )
+      
+    } else if (!inherits(rnaKneeData[[sample]], "try-error")) {
+      
+      kneeData <- as.data.frame(rnaKneeData[[sample]]@listData)
+      kneeData$assay <- "RNA"
+      
+      hlineY <- c(
+        rnaKneeData[[sample]]@metadata$knee,
+        rnaKneeData[[sample]]@metadata$inflection
+      )
+      
+      plotList[[sample]] <- createStandardScatterPlot(
+        df = kneeData, obsX = "rank", obsY = "total", 
+        colourBy = "assay", colours = c("chocolate"),
+        shapeBy = "assay", shapes = 16,
+        xLabel = "Barcode Rank",yLabel = "Total UMI Counts",
+        xTrans = "log10", yTrans = "log10",
+        hlineY = hlineY, hlineColourBy = c("RNA", "RNA"),
+        hlineTypeBy = c("knee", "inflection"), hlineType = c("dotted", "dashed"),
+        pointSize = 2
+      )
+      
+    } else if (!inherits(adtKneeData[[sample]], "try-error")) {
+      
+      kneeData <- as.data.frame(adtKneeData[[sample]]@listData)
+      kneeData$assay <- "ADT"
+      
+      hlineY <- c(
+        adtKneeData[[sample]]@metadata$knee,
+        adtKneeData[[sample]]@metadata$inflection
+      )
+      
+      plotList[[sample]] <- createStandardScatterPlot(
+        kneeData, obsX = "rank", obsY = "total", 
+        colourBy = "assay", colours = c("cornflowerblue"),
+        shapeBy = "assay", shapes = 17,
+        xLabel = "Barcode Rank", yLabel = "Total UMI Counts",
+        xTrans = "log10", yTrans = "log10",
+        hlineY = hlineY, hlineColourBy = c("ADT", "ADT"),
+        hlineTypeBy = c("knee", "inflection"), hlineType = c("dotted", "dashed"),
+        pointSize = 2
+      )
+      
+    } 
+    
+  } else if (!inherits(rnaKneeData[[sample]], "try-error")) { 
+    
+    kneeData <- as.data.frame(rnaKneeData[[sample]]@listData)
+    kneeData$assay <- "RNA"
+    
+    hlineY <- c(
+      round(rnaKneeData[[sample]]@metadata$knee, 1),
+      round(rnaKneeData[[sample]]@metadata$inflection, 1)
+    )
+    
+    plotList[[sample]] <- createStandardScatterPlot(
+      df = kneeData, obsX = "rank", obsY = "total", 
+      colourBy = "assay", colours = c("chocolate"),
+      shapeBy = "assay", shapes = 16,
+      xLabel = "Barcode Rank", yLabel = "Total UMI Counts",
+      xTrans = "log10", yTrans = "log10",
+      hlineY = hlineY, hlineColourBy = c("RNA", "RNA"),
+      hlineTypeBy = c("knee", "inflection"),
+      hlineType = c("dotted", "dashed"), pointSize = 2
+    )
+    
+  } else if (inherits(rnaKneeData[[sample]], "try-error")) {
+    
+    textList[[sample]] <- 
+      paste0(textList[[sample]],
+             "Unable to generate a knee plot for this sample's RNA data. ",
+             "Possible reason: insufficient number of unique points for fitting 
+             spline and computing knee/inflection points. ")
+    
+  }
+}
+
+codeStringChannelDropOut <- tabLayout(
+  tabNames = tabNames,
+  plotList = plotList, 
+  textList = textList,
+  addContentNameToTextList = FALSE,
+  contentNames = contentNames,
+  tabLevel = 3,
+  includeFigDimensions = FALSE
+)
+
+```
+`r if (renderKneePlots) { knitr::knit(text = paste(codeStringChannelDropOut, collapse = '\n')) }`
+
+
+
+<!-- SCATTER PLOTS -->
+```{r gex-and-adt-scatterplot-dimensions}
+
+nAntibodySamples <- length(which(antibodyDataPresent))
+figParams <- computeFigParams(geom = "faceted_scatter",
+                              nBreaks = nAntibodySamples, 
+                              nBreaksInStandardHeight = 8,
+                              standardFigWidth = standardFigWidth,
+                              standardFigHeight = standardFigHeight)
+
+```
+
+
+```{r gex-and-adt-scatterplot-of-umi-counts-args, eval = renderScatterGEXADT}
+
+gexAdtScatterData <- combineMetrics(
+  X = cellMetricData[antibodyDataPresent],
+  fillMissing = FALSE
+)
+
+dfSP <- gexAdtScatterData
+xObsSP <- "nCount_ADT"
+yObsSP <- "nCount_RNA"
+groupBySP <- "sampleName"
+xLabelSP <- "ADT UMI Count"
+yLabelSP <- "RNA UMI Count"
+xLimitsSP <- c(0, max(gexAdtScatterData[, "nCount_ADT"]))
+yLimitsSP <- c(0, max(gexAdtScatterData[, "nCount_RNA"]))
+displayAxesSP <- "free_x"
+fixXSP <- TRUE
+fixYSP <- TRUE
+
+argsSP <- list(df = dfSP,
+               xObs = xObsSP, 
+               yObs = yObsSP,
+               groupBy = groupBySP,
+               xLabel = xLabelSP,
+               yLabel = yLabelSP,
+               xLimits = xLimitsSP,
+               yLimits = yLimitsSP,
+               displayAxes = displayAxesSP,
+               fixX = fixXSP,
+               fixY = fixYSP)
+
+```
+
+
+
+```{r gex-and-adt-scatterplots-of-umi-counts-1, eval = renderScatterGEXADT, fig.width = figParams$width, fig.height = figParams$height}
+
+if (!params$isFilteredData) {
+  pander::pandoc.header("Scatter plots of the raw data {.tabset}", level = 2)
+} else {
+  pander::pandoc.header("Scatter plots of the filtered data {.tabset}", level = 2)
+}
+pander::pandoc.p("Scatter plots of the RNA UMI counts against the ADT UMI counts are useful for identifying outlying barcodes. For instance, barcodes with high RNA UMI counts and low ADT UMI counts and vice verse.")
+pander::pandoc.header("RNA UMI Count vs. ADT UMI Count {.tabset -}", level = 3)
+pander::pandoc.header("Fixed Axes {-}", level = 4)
+
+for (i in 1:figParams$nFullFigs) {
+  
+  samplesToPlot <- levels(
+    as.factor(gexAdtScatterData$sampleName)
+    )[figParams$seqStart[i]:figParams$seqEnd[i]]
+  subset <- gexAdtScatterData$sampleName %in% samplesToPlot
+  argsSP$df <- gexAdtScatterData[subset,]
+    
+  print(do.call("createCorrelationScatterPlot", args = argsSP))
+  
+}
+
+``` 
+
+
+```{r gex-and-adt-scatterplots-of-umi-counts-2, eval = renderScatterGEXADT & figParams$remainder, fig.width = figParams$width, fig.height = figParams$heightRemainder}
+
+samplesToPlot <- levels(
+    as.factor(gexAdtScatterData$sampleName)
+    )[figParams$seqStart[figParams$nFigures]:
+        figParams$seqEnd[figParams$nFigures]]
+subset <- gexAdtScatterData$sampleName %in% samplesToPlot
+argsSP$df <- gexAdtScatterData[subset,]
+  
+do.call("createCorrelationScatterPlot", args = argsSP)
+
+
+``` 
+
+
+```{r gex-and-adt-scatterplots-of-umi-counts-free-axes-1, eval = renderScatterGEXADT, fig.width = figParams$width, fig.height = figParams$height}
+
+argsSP$xLimits <- NULL
+argsSP$yLimits <- NULL
+argsSP$displayAxes <- "free"
+argsSP$fixX <- FALSE
+argsSP$fixY <- FALSE
+
+pander::pandoc.header("Free Axes {-}", level = 4)
+
+for (i in 1:figParams$nFullFigs) {
+  
+  samplesToPlot <- levels(
+    as.factor(gexAdtScatterData$sampleName)
+    )[figParams$seqStart[i]:figParams$seqEnd[i]]
+  subset <- gexAdtScatterData$sampleName %in% samplesToPlot
+  argsSP$df <- gexAdtScatterData[subset,]
+    
+  print(do.call("createCorrelationScatterPlot", args = argsSP))
+  
+}
+
+```
+
+
+```{r gex-and-adt-scatterplots-of-umi-counts-free-axes-2, eval = renderScatterGEXADT & figParams$remainder, fig.width = figParams$width, fig.height = figParams$heightRemainder}
+
+samplesToPlot <- levels(
+    as.factor(gexAdtScatterData$sampleName)
+    )[figParams$seqStart[figParams$nFigures]:
+        figParams$seqEnd[figParams$nFigures]]
+subset <- gexAdtScatterData$sampleName %in% samplesToPlot
+argsSP$df <- gexAdtScatterData[subset,]
+  
+do.call("createCorrelationScatterPlot", args = argsSP)
+
+```
+
+
+```{r gex-and-adt-scatterplots-of-umi-counts-excluding-top-ten-1, eval = renderScatterGEXADT, fig.width = figParams$width, fig.height = figParams$height}
+
+pander::pandoc.header("Free Axes Excluding Top 10 {-}", level = 4)
+
+gexAdtScatterData <- lapply(X = cellMetricData[antibodyDataPresent],
+                            FUN = .scatterExcludeTopN, 
+                            xObs = "nCount_ADT",
+                            yObs = "nCount_RNA",
+                            topNCutoff = 10)
+gexAdtScatterData <- combineMetrics(X = gexAdtScatterData,
+                                    fillMissing = FALSE)
+
+argsSP$xLimits <- NULL
+argsSP$yLimits <- NULL
+argsSP$displayAxes <- "free"
+argsSP$fixX <- FALSE
+argsSP$fixY <- FALSE
+
+
+for (i in 1:figParams$nFullFigs) {
+  
+  samplesToPlot <- levels(
+    as.factor(gexAdtScatterData$sampleName)
+    )[figParams$seqStart[i]:figParams$seqEnd[i]]
+  subset <- gexAdtScatterData$sampleName %in% samplesToPlot
+  argsSP$df <- gexAdtScatterData[subset,]
+    
+  print(do.call("createCorrelationScatterPlot", args = argsSP))
+  
+}
+
+```
+
+
+```{r gex-and-adt-scatterplots-of-umi-counts-excluding-top-ten-2, eval = renderScatterGEXADT & figParams$remainder, fig.width = figParams$width, fig.height = figParams$heightRemainder}
+
+samplesToPlot <- levels(
+    as.factor(gexAdtScatterData$sampleName)
+    )[figParams$seqStart[figParams$nFigures]:
+        figParams$seqEnd[figParams$nFigures]]
+subset <- gexAdtScatterData$sampleName %in% samplesToPlot
+argsSP$df <- gexAdtScatterData[subset,]
+  
+do.call("createCorrelationScatterPlot", args = argsSP)
+
+```
+
