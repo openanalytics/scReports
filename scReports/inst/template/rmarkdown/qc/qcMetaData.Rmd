@@ -1,0 +1,39 @@
+<!-- META DATA -->
+
+```{r meta-read-in-metadata, eval = renderMetaTable}
+
+pander::pandoc.header("Meta data", level = 1)
+
+meta <- read.delim(params$metaFile, comment.char = "#", sep = "\t")
+sampleIdCol <- which(apply(meta, 2, function(x) all(params$sampleIDs %in% x)))
+if (length(sampleIdCol) != 0) {
+  sampleIdCol <- sampleIdCol[1]
+  meta <- meta[meta[,sampleIdCol] %in% params$sampleIDs, c(sampleIdCol, (1:ncol(meta))[-sampleIdCol]), drop = FALSE]
+}
+
+```
+
+
+```{r meta-display-table-of-meta-data, eval = renderMetaTable}
+
+DT::datatable(meta,
+              class = "display",
+              escape = FALSE, 
+              extensions = "FixedColumns",
+              rownames = FALSE,
+              style = "default",
+              options = list(scrollX = TRUE,
+                             fixedColumns = list(leftColumns = 1),
+                             columnDefs = list(
+                              list(className = 'dt-left', targets = 0)
+                             ),
+                             paging = TRUE,
+                             pageLength = 50,
+                             lengthMenu = c(2, 5, 10, 25, 50, 100),
+                             ordering = TRUE,
+                             searching = FALSE)
+) %>%
+  DT::formatStyle(ifelse(length(sampleIdCol) != 0, names(sampleIdCol)[1], 1),
+              fontWeight = "bold")
+
+```

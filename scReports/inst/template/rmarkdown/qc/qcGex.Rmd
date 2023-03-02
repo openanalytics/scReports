@@ -1,0 +1,857 @@
+<!-- RAW GEX DATA -->
+
+```{r gex-setup, eval = runGeneExpression}
+
+if (!params$isFilteredData) {
+  pander::pandoc.header("Raw gene expression data", level = 1)
+} else {
+  pander::pandoc.header("Filtered gene expression data", level = 1)
+}
+pander::pandoc.p("Quality control of single cell data is essential to identify droplet barcodes that are associated with single viable cells. The UMI count per barcode, gene count per barcode and the fraction of the gene counts attributed to mitochondrial genes per barcode are calculated for each sample. These distributions are used to filter out barcodes associated with empty droplets, droplets containing cell doublets or non-viable cells. QC metrics should be considered jointly instead of separately. First, one should try to be as permissive as possible. Thereafter, filtering thresholds can be adjusted if needed, for instance, in the event that downstream clustering cannot be properly interpreted.")
+
+if (!params$isFilteredData) {
+  pander::pandoc.p("The following minimal filtering was applied: (1) genes expressed in fewer than three cells were dropped and (2) cells with less than a total of 10 UMI counts in all assays were dropped before creating the figures in this section.")
+}
+
+```
+
+
+<!-- VIOLIN PLOTS -->
+```{r gex-violin-dimensions}
+
+figParams <- computeFigParams(geom = "violin", 
+                              nBreaks = nSamples, 
+                              nBreaksInStandardHeight = 15,
+                              standardFigWidth = standardFigWidth,
+                              standardFigHeight = standardFigHeight)
+
+```
+
+
+```{r gex-violin-nfeatures-args, eval = renderViolinGEX}
+
+argsViolinPlot <- list(
+  df = primaryQCData, 
+  obs = "nFeature_RNA", 
+  groupBy = "sampleName",
+  horizontal = horizontalViolinPlots,
+  title = "Number of Genes", 
+  xLabel = "Sample", 
+  yLabel = "Number of Genes",
+  xAxisTextAngle = ifelse(horizontalViolinPlots, 0, 90),
+  removeViolin = FALSE, 
+  removeJitter = FALSE,
+  includeDefaultPositionalScales = !figParams$multipleFigures
+)
+
+```
+
+
+```{r gex-violin-with-jittered-points-nfeatures-1, eval = renderViolinGEX, fig.width = figParams$width, fig.height = figParams$height}
+
+if (!params$isFilteredData) {
+  pander::pandoc.header("Violin plots of the raw gene expression data {.tabset}", level = 2)
+} else {
+  pander::pandoc.header("Violin plots of the filtered gene expression data {.tabset}", level = 2)
+}
+pander::pandoc.p("Violin plots are used to identify peaks that correspond to: <br>
+  (1) droplets with a low count depth, few detected genes, and a high fraction of mitochondrial genes indicative of dying cells; <br>
+  (2) droplets with a high UMI or gene count, probably corresponding to cell doublets; or <br>
+  (3) droplets with low values for all three metrics indicating empty droplets containing only floating RNA.")
+pander::pandoc.header("Number of Genes {.tabset -}", level = 3)
+pander::pandoc.header("Violin Plot with Jittered Points {-}", level = 4)
+
+argsViolinPlot$removeViolin <- FALSE
+argsViolinPlot$removeJitter <- FALSE
+
+gg <- do.call("createViolinPlot", argsViolinPlot)
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[1:figParams$nFullFigs],
+            endPos = figParams$seqEnd[1:figParams$nFullFigs],
+            flip = horizontalViolinPlots,
+            zoom = FALSE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r gex-violin-with-jittered-points-nfeatures-2, eval = renderViolinGEX & figParams$remainder, fig.width = figParams$width, fig.height = figParams$heightRemainder}
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[figParams$nFigures],
+            endPos = figParams$seqEnd[figParams$nFigures],
+            flip = horizontalViolinPlots,
+            zoom = FALSE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r gex-zoomed-in-violin-with-jittered-points-nfeatures-1, eval = renderViolinGEX, fig.width = figParams$width, fig.height = figParams$height}
+
+pander::pandoc.header("Zoomed in Violin Plot with Jittered Points {-}", level = 4)
+
+argsViolinPlot$removeViolin <- FALSE
+argsViolinPlot$removeJitter <- FALSE
+
+gg <- do.call("createViolinPlot", argsViolinPlot)
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[1:figParams$nFullFigs],
+            endPos = figParams$seqEnd[1:figParams$nFullFigs],
+            flip = horizontalViolinPlots,
+            zoom = TRUE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r gex-zoomed-in-violin-with-jittered-points-nfeatures-2, eval = renderViolinGEX & figParams$remainder, fig.width = figParams$width, fig.height = figParams$heightRemainder}
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[figParams$nFigures],
+            endPos = figParams$seqEnd[figParams$nFigures],
+            flip = horizontalViolinPlots,
+            zoom = TRUE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r gex-jitterplot-nfeatures-1, eval = renderViolinGEX, fig.width = figParams$width, fig.height = figParams$height}
+
+pander::pandoc.header("Jittered Points {-}", level = 4)
+
+argsViolinPlot$removeViolin <- TRUE
+argsViolinPlot$removeJitter <- FALSE
+
+gg <- do.call("createViolinPlot", argsViolinPlot)
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[1:figParams$nFullFigs],
+            endPos = figParams$seqEnd[1:figParams$nFullFigs],
+            flip = horizontalViolinPlots,
+            zoom = FALSE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r gex-jitterplot-nfeatures-2, eval = renderViolinGEX & figParams$remainder, fig.width = figParams$width, fig.height = figParams$heightRemainder}
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[figParams$nFigures],
+            endPos = figParams$seqEnd[figParams$nFigures],
+            flip = horizontalViolinPlots,
+            zoom = FALSE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r gex-violinplot-nfeatures-1, eval = renderViolinGEX, fig.width = figParams$width, fig.height = figParams$height}
+
+pander::pandoc.header("Violin Plot {-}", level = 4)
+
+argsViolinPlot$removeViolin <- FALSE
+argsViolinPlot$removeJitter <- TRUE
+
+gg <- do.call("createViolinPlot", argsViolinPlot)
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[1:figParams$nFullFigs],
+            endPos = figParams$seqEnd[1:figParams$nFullFigs],
+            flip = horizontalViolinPlots,
+            zoom = FALSE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r gex-violinplot-nfeatures-2, eval = renderViolinGEX & figParams$remainder, fig.width = figParams$width, fig.height = figParams$heightRemainder}
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[figParams$nFigures],
+            endPos = figParams$seqEnd[figParams$nFigures],
+            flip = horizontalViolinPlots,
+            zoom = FALSE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r gex-zoomed-in-violinplot-nfeatures-1, eval = renderViolinGEX, fig.width = figParams$width, fig.height = figParams$height}
+
+pander::pandoc.header("Zoomed in Violin Plot {-}", level = 4)
+
+argsViolinPlot$removeViolin <- FALSE
+argsViolinPlot$removeJitter <- TRUE
+
+gg <- do.call("createViolinPlot", argsViolinPlot)
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[1:figParams$nFullFigs],
+            endPos = figParams$seqEnd[1:figParams$nFullFigs],
+            flip = horizontalViolinPlots,
+            zoom = TRUE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r gex-zoomed-in-violinplot-nfeatures-2, eval = renderViolinGEX & figParams$remainder, fig.width = figParams$width, fig.height = figParams$heightRemainder}
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[figParams$nFigures],
+            endPos = figParams$seqEnd[figParams$nFigures],
+            flip = horizontalViolinPlots,
+            zoom = TRUE,
+            splitFigure = figParams$multipleFigures)
+```
+
+
+```{r gex-violin-ncounts-args, eval = renderViolinGEX}
+
+argsViolinPlot <- list(
+  df = primaryQCData, 
+  obs = "nCount_RNA", 
+  groupBy = "sampleName",
+  horizontal = horizontalViolinPlots,
+  title = "UMI Count", 
+  xLabel = "Sample", 
+  yLabel = "UMI Count",
+  xAxisTextAngle = ifelse(horizontalViolinPlots, 0, 90),
+  removeViolin = FALSE, 
+  removeJitter = FALSE,
+  includeDefaultPositionalScales = !figParams$multipleFigures
+)
+
+```
+
+
+```{r gex-violin-with-jittered-points-ncounts-1, eval = renderViolinGEX, fig.width = figParams$width, fig.height = figParams$height}
+
+pander::pandoc.header("UMI Count {.tabset -}", level = 3)
+pander::pandoc.header("Violin Plot with Jittered Points {-}", level = 4)
+
+argsViolinPlot$removeViolin <- FALSE
+argsViolinPlot$removeJitter <- FALSE
+
+gg <- do.call("createViolinPlot", argsViolinPlot)
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[1:figParams$nFullFigs],
+            endPos = figParams$seqEnd[1:figParams$nFullFigs],
+            flip = horizontalViolinPlots,
+            zoom = FALSE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r gex-violin-with-jittered-points-ncounts-2, eval = renderViolinGEX & figParams$remainder, fig.width = figParams$width, fig.height = figParams$heightRemainder}
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[figParams$nFigures],
+            endPos = figParams$seqEnd[figParams$nFigures],
+            flip = horizontalViolinPlots,
+            zoom = FALSE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r gex-zoomed-in-violin-with-jittered-points-ncounts-1, eval = renderViolinGEX, fig.width = figParams$width, fig.height = figParams$height}
+
+pander::pandoc.header("Zoomed in Violin Plot with Jittered Points {-}", level = 4)
+
+argsViolinPlot$removeViolin <- FALSE
+argsViolinPlot$removeJitter <- FALSE
+
+gg <- do.call("createViolinPlot", argsViolinPlot)
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[1:figParams$nFullFigs],
+            endPos = figParams$seqEnd[1:figParams$nFullFigs],
+            flip = horizontalViolinPlots,
+            zoom = TRUE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r gex-zoomed-in-violin-with-jittered-points-ncounts-2, eval = renderViolinGEX & figParams$remainder, fig.width = figParams$width, fig.height = figParams$heightRemainder}
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[figParams$nFigures],
+            endPos = figParams$seqEnd[figParams$nFigures],
+            flip = horizontalViolinPlots,
+            zoom = TRUE,
+            splitFigure = figParams$multipleFigures)
+```
+
+
+```{r gex-jitterplot-ncounts-1, eval = renderViolinGEX, fig.width = figParams$width, fig.height = figParams$height}
+
+pander::pandoc.header("Jittered Points {-}", level = 4)
+
+argsViolinPlot$removeViolin <- TRUE
+argsViolinPlot$removeJitter <- FALSE
+
+gg <- do.call("createViolinPlot", argsViolinPlot)
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[1:figParams$nFullFigs],
+            endPos = figParams$seqEnd[1:figParams$nFullFigs],
+            flip = horizontalViolinPlots,
+            zoom = FALSE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r gex-jitterplot-ncounts-2, eval = renderViolinGEX & figParams$remainder, fig.width = figParams$width, fig.height = figParams$heightRemainder}
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[figParams$nFigures],
+            endPos = figParams$seqEnd[figParams$nFigures],
+            flip = horizontalViolinPlots,
+            zoom = FALSE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r gex-violinplot-ncounts-1, eval = renderViolinGEX, fig.width = figParams$width, fig.height = figParams$height}
+
+pander::pandoc.header("Violin Plot {-}", level = 4)
+
+argsViolinPlot$removeViolin <- FALSE
+argsViolinPlot$removeJitter <- TRUE
+
+gg <- do.call("createViolinPlot", argsViolinPlot)
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[1:figParams$nFullFigs],
+            endPos = figParams$seqEnd[1:figParams$nFullFigs],
+            flip = horizontalViolinPlots,
+            zoom = FALSE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r gex-violinplot-ncounts-2, eval = renderViolinGEX & figParams$remainder, fig.width = figParams$width, fig.height = figParams$heightRemainder}
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[figParams$nFigures],
+            endPos = figParams$seqEnd[figParams$nFigures],
+            flip = horizontalViolinPlots,
+            zoom = FALSE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r gex-zoomed-in-violinplot-ncounts-1, eval = renderViolinGEX, fig.width = figParams$width, fig.height = figParams$height}
+
+pander::pandoc.header("Zoomed in Violin Plot {-}", level = 4)
+
+argsViolinPlot$removeViolin <- FALSE
+argsViolinPlot$removeJitter <- TRUE
+
+gg <- do.call("createViolinPlot", argsViolinPlot)
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[1:figParams$nFullFigs],
+            endPos = figParams$seqEnd[1:figParams$nFullFigs],
+            flip = horizontalViolinPlots,
+            zoom = TRUE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r gex-zoomed-in-violinplot-ncounts-2, eval = renderViolinGEX & figParams$remainder, fig.width = figParams$width, fig.height = figParams$heightRemainder}
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[figParams$nFigures],
+            endPos = figParams$seqEnd[figParams$nFigures],
+            flip = horizontalViolinPlots,
+            zoom = TRUE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r gex-violin-percentmito-args, eval = renderViolinGEX & percentMitoPresent}
+
+argsViolinPlot <- list(
+  df = primaryQCData, 
+  obs = "percentMito", 
+  groupBy = "sampleName",
+  horizontal = horizontalViolinPlots,
+  title = "Percentage of Mitochondrial Genes", 
+  xLabel = "Sample", 
+  yLabel = "Percentage of Mitochondrial Genes",
+  xAxisTextAngle = ifelse(horizontalViolinPlots, 0, 90),
+  removeViolin = FALSE, 
+  removeJitter = FALSE,
+  includeDefaultPositionalScales = !figParams$multipleFigures
+)
+
+```
+
+
+```{r gex-violin-with-jittered-points-percentmito-1, eval = renderViolinGEX & percentMitoPresent, fig.width = figParams$width, fig.height = figParams$height}
+
+pander::pandoc.header("Percentage of Mitochondrial Genes {.tabset -}", level = 3)
+pander::pandoc.header("Violin Plot with Jittered Points {-}", level = 4)
+
+argsViolinPlot$removeViolin <- FALSE
+argsViolinPlot$removeJitter <- FALSE
+
+gg <- do.call("createViolinPlot", argsViolinPlot)
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[1:figParams$nFullFigs],
+            endPos = figParams$seqEnd[1:figParams$nFullFigs],
+            flip = horizontalViolinPlots,
+            zoom = FALSE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r gex-violin-with-jittered-points-percentmito-2, eval = renderViolinGEX & percentMitoPresent & figParams$remainder, fig.width = figParams$width, fig.height = figParams$heightRemainder}
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[figParams$nFigures],
+            endPos = figParams$seqEnd[figParams$nFigures],
+            flip = horizontalViolinPlots,
+            zoom = FALSE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r gex-zoomed-in-violin-with-jittered-points-percentmito-1, eval = renderViolinGEX & percentMitoPresent, fig.width = figParams$width, fig.height = figParams$height}
+
+pander::pandoc.header("Zoomed in Violin Plot with Jittered Points {-}", level = 4)
+
+argsViolinPlot$removeViolin <- FALSE
+argsViolinPlot$removeJitter <- FALSE
+
+gg <- do.call("createViolinPlot", argsViolinPlot)
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[1:figParams$nFullFigs],
+            endPos = figParams$seqEnd[1:figParams$nFullFigs],
+            flip = horizontalViolinPlots,
+            zoom = TRUE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r gex-zoomed-in-violin-with-jittered-points-percentmito-2, eval = renderViolinGEX & percentMitoPresent & figParams$remainder, fig.width = figParams$width, fig.height = figParams$heightRemainder}
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[figParams$nFigures],
+            endPos = figParams$seqEnd[figParams$nFigures],
+            flip = horizontalViolinPlots,
+            zoom = TRUE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r gex-jitterplot-percentmito-1, eval = renderViolinGEX & percentMitoPresent, fig.width = figParams$width, fig.height = figParams$height}
+
+pander::pandoc.header("Jittered Points {-}", level = 4)
+
+argsViolinPlot$removeViolin <- TRUE
+argsViolinPlot$removeJitter <- FALSE
+
+gg <- do.call("createViolinPlot", argsViolinPlot)
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[1:figParams$nFullFigs],
+            endPos = figParams$seqEnd[1:figParams$nFullFigs],
+            flip = horizontalViolinPlots,
+            zoom = FALSE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r gex-jitterplot-percentmito-2, eval = renderViolinGEX & percentMitoPresent & figParams$remainder, fig.width = figParams$width, fig.height = figParams$heightRemainder}
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[figParams$nFigures],
+            endPos = figParams$seqEnd[figParams$nFigures],
+            flip = horizontalViolinPlots,
+            zoom = FALSE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r gex-violinplot-percentmito-1, eval = renderViolinGEX & percentMitoPresent, fig.width = figParams$width, fig.height = figParams$height}
+
+pander::pandoc.header("Violin Plot {-}", level = 4)
+
+argsViolinPlot$removeViolin <- FALSE
+argsViolinPlot$removeJitter <- TRUE
+
+gg <- do.call("createViolinPlot", argsViolinPlot)
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[1:figParams$nFullFigs],
+            endPos = figParams$seqEnd[1:figParams$nFullFigs],
+            flip = horizontalViolinPlots,
+            zoom = FALSE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r gex-violinplot-percentmito-2, eval = renderViolinGEX & percentMitoPresent & figParams$remainder, fig.width = figParams$width, fig.height = figParams$heightRemainder}
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[figParams$nFigures],
+            endPos = figParams$seqEnd[figParams$nFigures],
+            flip = horizontalViolinPlots,
+            zoom = FALSE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r gex-zoomed-in-violin-plot-percentmito-1, eval = renderViolinGEX & percentMitoPresent, fig.width = figParams$width, fig.height = figParams$height}
+
+pander::pandoc.header("Zoomed in Violin Plot {-}", level = 4)
+
+argsViolinPlot$removeViolin <- FALSE
+argsViolinPlot$removeJitter <- TRUE
+
+gg <- do.call("createViolinPlot", argsViolinPlot)
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[1:figParams$nFullFigs],
+            endPos = figParams$seqEnd[1:figParams$nFullFigs],
+            flip = horizontalViolinPlots,
+            zoom = TRUE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r gex-zoomed-in-violin-plot-percentmito-2, eval = renderViolinGEX & percentMitoPresent & figParams$remainder, fig.width = figParams$width, fig.height = figParams$heightRemainder}
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[figParams$nFigures],
+            endPos = figParams$seqEnd[figParams$nFigures],
+            flip = horizontalViolinPlots,
+            zoom = TRUE,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+
+<!-- KNEE PLOTS -->
+```{r gex-knee-plot-setup}
+
+figParams <- computeFigParams(geom = "scatter", 
+                              nBreaks = nSamples, 
+                              nBreaksInStandardHeight = 15,
+                              standardFigWidth = standardFigWidth,
+                              standardFigHeight = standardFigHeight)
+
+```
+
+
+```{r gex-knee-plot-data, eval = !runAntibody & renderKneePlots}
+
+if (!params$isFilteredData) {
+  pander::pandoc.header("Knee plots of the raw gene expression data {.tabset}", level = 2)
+} else {
+  pander::pandoc.header("Knee plots of the filtered gene expression data {.tabset}", level = 2)
+}
+pander::pandoc.p("In order to generate the knee plots shown below, barcodes were ranked in decreasing order of their total counts. In the figures, the logarithm-transformed total counts of each barcode are plotted against their corresponding logarithm-transformed ranks. The figures can be of use in determining filtering thresholds. The knee points represent transitioning points between barcodes that contain a large number of total UMI counts and barcodes with far fewer UMI counts. As discussed in Lun et al., 2019, barcodes that lie above the knee point are likely to correspond to cell-containing droplets whereas barcodes that lie below the knee point could potentially be empty droplets. The knee point provides a more conservative threshold than the inflection point. Note, the knee and inflection points were determined using the default settings of the 'barcodeRanks' function from the 'DropletUtils' R package.")
+
+# Compute knee data
+rnaKneeData <- lapply(X = rawData,
+                      FUN = function(x) {
+                        try(DropletUtils::barcodeRanks(m = x[["RNA"]]),
+                            silent = TRUE)
+                      }
+)
+
+# Extract overview of points
+samples <- rep(names(rawData), each = 2)
+assay <- rep("RNA", times = 2*length(rawData))
+pointDescription <- rep(c("knee", "inflection"), times = length(rawData))
+type <- paste0(assay, "-", pointDescription)
+pointValues <- unlist(lapply(names(rnaKneeData),
+                             function(x) {
+                               if (inherits(rnaKneeData[[x]], "try-error")) {
+                                 knee <- NA
+                                 inflection <- NA
+                               } else {
+                                 knee <- rnaKneeData[[x]]@metadata$knee
+                                 inflection <- rnaKneeData[[x]]@metadata$inflection
+                               }
+                               return(c(knee,inflection))
+                             }
+))
+pointOverview <- data.frame(
+  "sample" = samples, 
+  "assay" = assay, 
+  "pointDescription" = pointDescription,
+  "type" = type, 
+  "value" = pointValues)
+
+```
+
+
+```{r gex-knee-plot-overview-args, eval = !runAntibody & renderKneePlots}
+
+argsKPO <- list(
+  df = pointOverview, 
+  obsX = "sample", 
+  obsY = "value",
+  colourBy = "type", 
+  colours = c("chocolate", "orange"),
+  shapeBy = "type",
+  xLabel = "Sample", 
+  yLabel = "Total UMI Counts", 
+  lLabel = "Type of Point",
+  xAngle = ifelse(horizontalKneePlotOverview, 0, 90)
+)
+
+```
+
+
+```{r gex-knee-plot-overview-1, eval = !runAntibody & renderKneePlots, fig.width = figParams$width, fig.height = figParams$height}
+
+pander::pandoc.header("Overview {-}", level = 3)
+
+gg <- do.call("createStandardScatterPlot", args = argsKPO)
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[1:figParams$nFullFigs],
+            endPos = figParams$seqEnd[1:figParams$nFullFigs],
+            flip = horizontalKneePlotOverview,
+            expansionFactor = 0.01,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r gex-knee-plot-overview-2, eval = !runAntibody & renderKneePlots & figParams$remainder, fig.width = figParams$width, fig.height = figParams$heightRemainder}
+
+displayPlot(gg = gg,
+            startPos = figParams$seqStart[figParams$nFigures],
+            endPos = figParams$seqEnd[figParams$nFigures],
+            flip = horizontalKneePlotOverview,
+            zoom = FALSE,
+            expansionFactor = 0.01,
+            splitFigure = figParams$multipleFigures)
+
+```
+
+
+```{r gex-sample-specific-knee-plots, eval = !runAntibody & renderKneePlots, fig.width = standardFigWidth, fig.height = standardFigHeight}
+
+# Create list of plots and list of text
+i <- 0
+tabNames <- names(rawData)
+contentNames <- names(rawData)
+plotList <- NULL
+textList <- NULL
+knees <- NULL
+inflections <- NULL
+
+for (sample in names(rawData)) {
+  
+  i <- i + 1
+  textList[[sample]] <- NULL
+  plotList[[sample]] <- NULL
+  
+  if (inherits(rnaKneeData[[sample]], "try-error")) {
+    
+    textList[[sample]] <- 
+      paste0("Unable to generate a knee plot for this sample's RNA data. ",
+             "Possible reason: insufficient number of unique points for fitting 
+             spline and computing knee/inflection points.")
+    
+  } else if (!inherits(rnaKneeData[[sample]], "try-error")) {
+    
+    kneeData <- as.data.frame(rnaKneeData[[sample]]@listData)
+    kneeData$assay <- "RNA"
+    
+    hlineY <- c(
+      round(rnaKneeData[[sample]]@metadata$knee, 1),
+      round(rnaKneeData[[sample]]@metadata$inflection, 1)
+    )
+    
+    plotList[[sample]] <- createStandardScatterPlot(
+      df = kneeData, obsX = "rank", obsY = "total", 
+      colourBy = "assay", colours = c("chocolate"),
+      xLabel = "Barcode Rank", yLabel = "Total UMI Counts",
+      xTrans = "log10", yTrans = "log10",
+      hlineY = hlineY, hlineColourBy = c("RNA", "RNA"),
+      hlineTypeBy = c("knee", "inflection"), hlineType = c("dotted", "dashed"),
+      pointSize = 2
+    )
+    
+  } 
+  
+}
+
+codeStringChannelDropOut <- tabLayout(
+  tabNames = tabNames,
+  plotList = plotList, 
+  textList = textList,
+  addContentNameToTextList = FALSE,
+  contentNames = contentNames,
+  tabLevel = 3,
+  includeFigDimensions = FALSE
+)
+
+```
+`r if (!runAntibody & renderKneePlots) { knitr::knit(text = paste(codeStringChannelDropOut, collapse = '\n')) }`
+
+
+
+<!-- SCATTER PLOTS -->
+```{r gex-scatterplot-dimensions}
+
+figParams <- computeFigParams(geom = "faceted_scatter", 
+                              nBreaks = nSamples, 
+                              nBreaksInStandardHeight = 8,
+                              standardFigWidth = standardFigWidth,
+                              standardFigHeight = standardFigHeight)
+
+```
+
+
+```{r gex-scatterplot-nfeatures-vs-ncounts-args, eval = renderScatterGEX}
+
+dfSP <-primaryQCData
+xObsSP <- "nCount_RNA"
+yObsSP <- "nFeature_RNA"
+groupBySP <- "sampleName"
+xLabelSP <- "UMI Count"
+yLabelSP <- "Number of Genes"
+xLimitsSP <- c(0, max(primaryQCData[, "nCount_RNA"]))
+yLimitsSP <- c(0, max(primaryQCData[, "nFeature_RNA"]))
+
+argsSP <- list(df = dfSP,
+               xObs = xObsSP, 
+               yObs = yObsSP,
+               groupBy = groupBySP,
+               xLabel = xLabelSP,
+               yLabel = yLabelSP,
+               xLimits = xLimitsSP,
+               yLimits = yLimitsSP)
+
+```
+
+
+```{r gex-scatterplot-nfeatures-vs-ncounts-1, eval = renderScatterGEX, fig.width = figParams$width, fig.height = figParams$height}
+
+if (!params$isFilteredData) {
+  pander::pandoc.header("Scatter plots of the raw gene expression data {.tabset}", level = 2)
+} else {
+  pander::pandoc.header("Scatter plots of the filtered gene expression data {.tabset}", level = 2)
+}
+pander::pandoc.p("As with the violin plots, scatter plots of the number of genes versus the UMI count and of the percentage of mitochondrial genes versus the UMI count can also be used to identify cells with unexpected summary metrics.")
+pander::pandoc.header("Number of Genes vs. UMI Count {-}", level = 3)
+
+for (i in 1:figParams$nFullFigs) {
+  
+  samplesToPlot <- levels(
+    as.factor(primaryQCData$sampleName)
+    )[figParams$seqStart[i]:figParams$seqEnd[i]]
+  subset <- primaryQCData$sampleName %in% samplesToPlot
+  argsSP$df <- primaryQCData[subset,]
+    
+  print(do.call("createCorrelationScatterPlot", args = argsSP))
+  
+}
+
+```
+
+
+```{r gex-scatterplot-nfeatures-vs-ncounts-2, eval = renderScatterGEX & figParams$remainder, fig.width = figParams$width, fig.height = figParams$heightRemainder}
+
+samplesToPlot <- levels(
+    as.factor(primaryQCData$sampleName)
+    )[figParams$seqStart[figParams$nFigures]:
+        figParams$seqEnd[figParams$nFigures]]
+subset <- primaryQCData$sampleName %in% samplesToPlot
+argsSP$df <- primaryQCData[subset,]
+  
+do.call("createCorrelationScatterPlot", args = argsSP)
+
+```
+
+
+```{r gex-scatterplot-percentmito-vs-ncounts-args, eval = renderScatterGEX & percentMitoPresent}
+
+dfSP <-primaryQCData
+xObsSP <- "nCount_RNA"
+yObsSP <- "percentMito"
+groupBySP <- "sampleName"
+xLabelSP <- "UMI Count"
+yLabelSP <- "Percentage of MitoChondrial Genes"
+xLimitsSP <- c(0, max(primaryQCData[, "nCount_RNA"]))
+yLimitsSP <- c(0, max(primaryQCData[, "percentMito"]))
+
+argsSP <- list(df = dfSP,
+               xObs = xObsSP, 
+               yObs = yObsSP,
+               groupBy = groupBySP,
+               xLabel = xLabelSP,
+               yLabel = yLabelSP,
+               xLimits = xLimitsSP,
+               yLimits = yLimitsSP)
+
+```
+
+
+```{r gex-scatterplot-percentmito-vs-ncounts-1, eval = renderScatterGEX & percentMitoPresent, fig.width = figParams$width, fig.height = figParams$height}
+
+pander::pandoc.header("Percentage of Mitochondrial Genes vs. UMI Count {-}", level = 3)
+
+for (i in 1:figParams$nFullFigs) {
+  
+  samplesToPlot <- levels(
+    as.factor(primaryQCData$sampleName)
+    )[figParams$seqStart[i]:figParams$seqEnd[i]]
+  subset <- primaryQCData$sampleName %in% samplesToPlot
+  argsSP$df <- primaryQCData[subset,]
+    
+  print(do.call("createCorrelationScatterPlot", args = argsSP))
+  
+}
+
+```
+
+
+```{r gex-scatterplot-percentmito-vs-ncounts-2, eval = renderScatterGEX & percentMitoPresent & figParams$remainder, fig.width = figParams$width, fig.height = figParams$heightRemainder}
+
+samplesToPlot <- levels(
+    as.factor(primaryQCData$sampleName)
+    )[figParams$seqStart[figParams$nFigures]:
+        figParams$seqEnd[figParams$nFigures]]
+subset <- primaryQCData$sampleName %in% samplesToPlot
+argsSP$df <- primaryQCData[subset,]
+  
+do.call("createCorrelationScatterPlot", args = argsSP)
+
+```

@@ -1,0 +1,57 @@
+# Appendix
+
+
+## Session information
+
+```{r getSessionInfo}
+
+sessionInformation <- devtools::session_info()
+
+```
+
+### Platform
+
+```{r printPlatformInfo, warning = FALSE, error = FALSE, message = FALSE}
+
+pander::pandoc.p(paste0("**", R.utils::capitalize(names(sessionInformation$platform)), "**: ", unlist(sessionInformation$platform), "\n"))
+
+```
+
+### Packages
+
+```{r printPackageInfo}
+
+pander::pandoc.p("**Library path(s)**:")
+pander::pandoc.p(paste0(1:nlevels(sessionInformation$packages$library), ": ", levels(sessionInformation$packages$library), "\n")) 
+
+
+packages <- cbind("Package" = sessionInformation$packages$package,
+                  "Version" = sessionInformation$packages$loadedversion,
+                  "Attached" = sessionInformation$packages$attached,
+                  "Library" = sessionInformation$packages$library)
+packages <- packages[order(sessionInformation$packages$attached,
+                           decreasing = TRUE),]
+
+DT::datatable(packages,
+              class = "display",
+              escape = FALSE, 
+              extensions = "FixedColumns",
+              rownames = FALSE,
+              style = "default",
+              options = list(scrollX = TRUE,
+                             fixedColumns = list(leftColumns = 1),
+                             columnDefs = list(
+                               list(className = 'dt-left', targets = 0),
+                               list(className = 'dt-right', targets = 1:(ncol(packages)-1))
+                             ),
+                             paging = TRUE,
+                             pageLength = 10,
+                             lengthMenu = c(2,5,10,20,30,40,50,100),
+                             ordering = TRUE,
+                             searching = FALSE)
+) %>%
+  formatStyle("Package",
+              fontWeight = "bold") 
+
+pander::pandoc.p("Template developed by Open Analytics") 
+```
